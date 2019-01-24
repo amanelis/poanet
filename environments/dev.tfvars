@@ -1,0 +1,7 @@
+environment = "development"
+env_short = "dev"
+external_zone = "55f.cloud"
+key_name = "dev-01-10-2019"
+private_key = "~/.ssh/keys/dev-01-10-2019.pem"
+region = "us-west-2"
+vpc_cidr = "10.2.0.0/16"
