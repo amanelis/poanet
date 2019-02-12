@@ -3,39 +3,33 @@ resource "aws_security_group" "ethereum" {
   name        = "${var.environment}-eth-nodes"
   description = "Allow communication to Eth nodes"
 
+  tags {
+    Name        = "${var.environment}-ethereum-nodes"
+    Environment = "${var.environment}"
+  }
+
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "SSH"
   }
 
   ingress {
-    from_port   = 30301
-    to_port     = 30301
+    from_port   = 8000
+    to_port     = 8999
+    protocol    = "tcp"
+    cidr_blocks = ["${var.vpc_cidr}"]
+    description = "Ethereum RPC ports"
+  }
+
+  ingress {
+    from_port   = 30000
+    to_port     = 30999
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 30301
-    to_port     = 30301
-    protocol    = "udp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 30303
-    to_port     = 30303
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 30303
-    to_port     = 30303
-    protocol    = "udp"
-    cidr_blocks = ["0.0.0.0/0"]
+    description = "Ethereum service ports"
   }
 
   egress {
@@ -43,11 +37,7 @@ resource "aws_security_group" "ethereum" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags {
-    Name        = "${var.environment}-ethereum-nodes"
-    Environment = "${var.environment}"
+    description = "Out traffic"
   }
 }
 
@@ -63,12 +53,14 @@ resource "aws_instance" "geth1" {
 
   tags {
     Environment     = "${var.environment}"
-    Name            = "geth1"
-    NodeService     = "geth"
-    NodeType        = "full"
-    NodeVersion     = "1.8.22-unstable"
-    NodeNetwork     = "mainnet"
-    NodeDescription = "geth.full.mainnet"
+    Name            = "geth.${var.ethereum-geth["geth.full.type"]}.1"
+    NodeID          = "geth.${var.ethereum-geth["geth.mainnet"]}.${var.ethereum-geth["geth.version"]}.${var.ethereum-geth["geth.full.type"]}.1"
+    NodeService     = "${var.ethereum-geth["geth.service"]}"
+    NodeType        = "${var.ethereum-geth["geth.full.type"]}"
+    NodeVersion     = "${var.ethereum-geth["geth.version"]}"
+    NodeNetwork     = "${var.ethereum-geth["geth.mainnet"]}"
+    NodeRanking     = "${var.ethereum-geth["geth.ranking.experimental"]}"
+    AccountID       = "${var.owner_account_id}"
   }
 
   lifecycle {
@@ -83,26 +75,27 @@ resource "aws_instance" "geth1" {
     }
 
     inline = [
+      "sudo hostname geth-${var.ethereum-geth["geth.full.type"]}-1",
       "sudo apt-get install -y software-properties-common",
       "sudo add-apt-repository -y ppa:ethereum/ethereum",
       "sudo apt-get update -y",
       "sudo apt-get install -y build-essential git-core jq ntpdate supervisor vim ethereum",
-      "sudo ntpdate -s time.nist.gov"
+      "sudo ntpdate -s time.nist.gov",
     ]
   }
 }
 
 resource "aws_route53_record" "geth1" {
   zone_id = "${data.aws_route53_zone.external.zone_id}"
-  name    = "geth1"
+  name    = "${aws_instance.geth1.tags.Name}"
   type    = "A"
   ttl     = "300"
   records = ["${aws_instance.geth1.public_ip}"]
 }
 
 ################################################################################
-resource "aws_instance" "geth2" {
-  ami           = "${data.aws_ami.ethereum-node-1_8_22_unstable.id}"
+resource "aws_instance" "geth-master-full" {
+  ami           = "${data.aws_ami.ethereum-node-1_8_22-stable-ubuntu.id}"
   instance_type = "t2.medium"
 
   key_name               = "${var.key_name}"
@@ -112,117 +105,69 @@ resource "aws_instance" "geth2" {
 
   tags {
     Environment     = "${var.environment}"
-    Name            = "geth2"
-    NodeService     = "geth"
-    NodeType        = "light"
-    NodeVersion     = "1.8.22-unstable"
-    NodeNetwork     = "mainnet"
-    NodeDescription = "geth.light.mainnet"
+    Name            = "geth.${var.ethereum-geth["geth.master.name"]}.${var.ethereum-geth["geth.master.full"]}"
+    NodeID          = "geth.${var.ethereum-geth["geth.mainnet"]}.${var.ethereum-geth["geth.version"]}.${var.ethereum-geth["geth.master.full"]}"
+    NodeService     = "${var.ethereum-geth["geth.service"]}"
+    NodeType        = "${var.ethereum-geth["geth.master.full"]}"
+    NodeVersion     = "${var.ethereum-geth["geth.version"]}"
+    NodeNetwork     = "${var.ethereum-geth["geth.mainnet"]}"
+    NodeRanking     = "${var.ethereum-geth["geth.ranking.leader"]}"
+    AccountID       = "${var.owner_account_id}"
   }
 
   lifecycle {
     create_before_destroy = true
   }
-
-  provisioner "remote-exec" {
-    connection {
-      user        = "ubuntu"
-      private_key = "${file(var.private_key)}"
-      host        = "${self.public_ip}"
-    }
-
-    inline = [
-      "sudo hostname geth2",
-      "sudo ntpdate -s time.nist.gov",
-      "sudo systemctl daemon-reload",
-      "sudo systemctl start geth.light" # journalctl -f -u geth.light
-    ]
-  }
-}
-
-resource "aws_route53_record" "geth2" {
-  zone_id = "${data.aws_route53_zone.external.zone_id}"
-  name    = "geth2"
-  type    = "A"
-  ttl     = "300"
-  records = ["${aws_instance.geth2.public_ip}"]
-}
-
-# resource "aws_ebs_volume" "geth2" {
-#   availability_zone = "us-west-2a"
-#   size              = 64
-#   iops              = 500
-#   type              = "gp2"
-#
-#   tags = {
-#     Name = "geth2"
-#   }
-# }
-#
-# resource "aws_volume_attachment" "geth2" {
-#   device_name = "/dev/sdz"
-#   volume_id   = "${aws_ebs_volume.geth2.id}"
-#   instance_id = "${aws_instance.geth2.id}"
-# }
-
-################################################################################
-resource "aws_instance" "geth3" {
-  ami           = "${data.aws_ami.ethereum-node-1_8_22_unstable.id}"
-  instance_type = "t2.medium"
-
-  key_name               = "${var.key_name}"
-  subnet_id              = "${aws_subnet.public.0.id}"
-  vpc_security_group_ids = ["${aws_security_group.ethereum.id}"]
-  monitoring             = true
 
   root_block_device {
     delete_on_termination = true
-    iops                  = 500
-    volume_size           = 64
-    volume_type           = "gp2"
+    volume_size           = 8
   }
 
-  tags {
-    Environment     = "${var.environment}"
-    Name            = "geth3"
-    NodeService     = "geth"
-    NodeType        = "light"
-    NodeVersion     = "1.8.22-unstable"
-    NodeNetwork     = "mainnet"
-    NodeDescription = "geth.light.mainnet"
+  ebs_block_device {
+    device_name           = "/dev/sdg"
+    delete_on_termination = false
+
+    iops        = "${var.ethereum-geth["geth.full.iops"]}"
+    volume_size = "${var.ethereum-geth["geth.full.volume_size"]}"
+    volume_type = "io1"
   }
 
-  lifecycle {
-    create_before_destroy = true
+  volume_tags {
+    Name = "geth.${var.ethereum-geth["geth.master.name"]}.${var.ethereum-geth["geth.master.full"]}"
   }
 
   provisioner "remote-exec" {
     connection {
-      user        = "ubuntu"
+      user        = "${var.ethereum-geth["geth.user"]}"
       private_key = "${file(var.private_key)}"
       host        = "${self.public_ip}"
     }
 
     inline = [
-      "sudo hostname geth3",
+      "sudo hostname geth-${var.ethereum-geth["geth.master.name"]}-${var.ethereum-geth["geth.master.full"]}",
       "sudo ntpdate -s time.nist.gov",
+      "sudo mkdir -p /data",
+      "sudo mkfs -t ext4 /dev/xvdg",
+      "sudo mount /dev/xvdg /data",
+      "sudo chown -R ${var.ethereum-geth["geth.user"]} /data",
       "sudo systemctl daemon-reload",
-      "sudo systemctl start geth.light" # journalctl -f -u geth.light
+      "sudo systemctl start ${var.ethereum-geth["geth.service"]}.${var.ethereum-geth["geth.master.full"]}",
     ]
   }
 }
 
-resource "aws_route53_record" "geth3" {
+resource "aws_route53_record" "geth-master-full" {
   zone_id = "${data.aws_route53_zone.external.zone_id}"
-  name    = "geth3"
+  name    = "${aws_instance.geth-master-full.tags.Name}"
   type    = "A"
   ttl     = "300"
-  records = ["${aws_instance.geth3.public_ip}"]
+  records = ["${aws_instance.geth-master-full.public_ip}"]
 }
 
 ################################################################################
-resource "aws_instance" "geth4" {
-  ami           = "${data.aws_ami.ethereum-node-1_8_22_unstable.id}"
+resource "aws_instance" "geth-master-fast" {
+  ami           = "${data.aws_ami.ethereum-node-1_8_22-stable-ubuntu.id}"
   instance_type = "t2.medium"
 
   key_name               = "${var.key_name}"
@@ -230,47 +175,136 @@ resource "aws_instance" "geth4" {
   vpc_security_group_ids = ["${aws_security_group.ethereum.id}"]
   monitoring             = true
 
-  root_block_device {
-    delete_on_termination = true
-    iops                  = 500
-    volume_size           = 256
-    volume_type           = "gp2"
-  }
-
   tags {
     Environment     = "${var.environment}"
-    Name            = "geth4"
-    NodeService     = "geth"
-    NodeType        = "fast"
-    NodeVersion     = "1.8.22-unstable"
-    NodeNetwork     = "mainnet"
-    NodeDescription = "geth.fast.mainnet"
+    Name            = "geth.${var.ethereum-geth["geth.master.name"]}.${var.ethereum-geth["geth.master.fast"]}"
+    NodeID          = "geth.${var.ethereum-geth["geth.mainnet"]}.${var.ethereum-geth["geth.version"]}.${var.ethereum-geth["geth.master.fast"]}"
+    NodeService     = "${var.ethereum-geth["geth.service"]}"
+    NodeType        = "${var.ethereum-geth["geth.master.fast"]}"
+    NodeVersion     = "${var.ethereum-geth["geth.version"]}"
+    NodeNetwork     = "${var.ethereum-geth["geth.mainnet"]}"
+    NodeRanking     = "${var.ethereum-geth["geth.ranking.leader"]}"
+    AccountID       = "${var.owner_account_id}"
   }
 
   lifecycle {
     create_before_destroy = true
   }
 
+  root_block_device {
+    delete_on_termination = true
+    volume_size           = 8
+  }
+
+  ebs_block_device {
+    device_name           = "/dev/sdg"
+    delete_on_termination = false
+
+    iops        = "${var.ethereum-geth["geth.fast.iops"]}"
+    volume_size = "${var.ethereum-geth["geth.fast.volume_size"]}"
+    volume_type = "io1"
+  }
+
+  volume_tags {
+    Name = "geth.${var.ethereum-geth["geth.master.name"]}.${var.ethereum-geth["geth.master.fast"]}"
+  }
+
   provisioner "remote-exec" {
     connection {
-      user        = "ubuntu"
+      user        = "${var.ethereum-geth["geth.user"]}"
       private_key = "${file(var.private_key)}"
       host        = "${self.public_ip}"
     }
 
     inline = [
-      "sudo hostname geth4",
+      "sudo hostname geth-${var.ethereum-geth["geth.master.name"]}-${var.ethereum-geth["geth.master.fast"]}",
       "sudo ntpdate -s time.nist.gov",
+      "sudo mkdir -p /data",
+      "sudo mkfs -t ext4 /dev/xvdg",
+      "sudo mount /dev/xvdg /data",
+      "sudo chown -R ${var.ethereum-geth["geth.user"]} /data",
       "sudo systemctl daemon-reload",
-      "sudo systemctl start geth.fast" # journalctl -f -u geth.light
+      "sudo systemctl start ${var.ethereum-geth["geth.service"]}.${var.ethereum-geth["geth.master.fast"]}",
     ]
   }
 }
 
-resource "aws_route53_record" "geth4" {
+resource "aws_route53_record" "geth-master-fast" {
   zone_id = "${data.aws_route53_zone.external.zone_id}"
-  name    = "geth4"
+  name    = "${aws_instance.geth-master-fast.tags.Name}"
   type    = "A"
   ttl     = "300"
-  records = ["${aws_instance.geth4.public_ip}"]
+  records = ["${aws_instance.geth-master-fast.public_ip}"]
+}
+
+################################################################################
+resource "aws_instance" "geth-master-light" {
+  ami           = "${data.aws_ami.ethereum-node-1_8_22-stable-ubuntu.id}"
+  instance_type = "t2.medium"
+
+  key_name               = "${var.key_name}"
+  subnet_id              = "${aws_subnet.public.0.id}"
+  vpc_security_group_ids = ["${aws_security_group.ethereum.id}"]
+  monitoring             = true
+
+  tags {
+    Environment     = "${var.environment}"
+    Name            = "geth.${var.ethereum-geth["geth.master.name"]}.${var.ethereum-geth["geth.master.light"]}"
+    NodeID          = "geth.${var.ethereum-geth["geth.mainnet"]}.${var.ethereum-geth["geth.version"]}.${var.ethereum-geth["geth.master.light"]}"
+    NodeService     = "${var.ethereum-geth["geth.service"]}"
+    NodeType        = "${var.ethereum-geth["geth.master.light"]}"
+    NodeVersion     = "${var.ethereum-geth["geth.version"]}"
+    NodeNetwork     = "${var.ethereum-geth["geth.mainnet"]}"
+    NodeRanking     = "${var.ethereum-geth["geth.ranking.leader"]}"
+    AccountID       = "${var.owner_account_id}"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  root_block_device {
+    delete_on_termination = true
+    volume_size           = 8
+  }
+
+  ebs_block_device {
+    device_name           = "/dev/sdg"
+    delete_on_termination = false
+
+    iops        = "${var.ethereum-geth["geth.light.iops"]}"
+    volume_size = "${var.ethereum-geth["geth.light.volume_size"]}"
+    volume_type = "io1"
+  }
+
+  volume_tags {
+    Name = "geth.${var.ethereum-geth["geth.master.name"]}.${var.ethereum-geth["geth.master.light"]}"
+  }
+
+  provisioner "remote-exec" {
+    connection {
+      user        = "${var.ethereum-geth["geth.user"]}"
+      private_key = "${file(var.private_key)}"
+      host        = "${self.public_ip}"
+    }
+
+    inline = [
+      "sudo hostname geth-${var.ethereum-geth["geth.master.name"]}-${var.ethereum-geth["geth.master.light"]}",
+      "sudo ntpdate -s time.nist.gov",
+      "sudo mkdir -p /data",
+      "sudo mkfs -t ext4 /dev/xvdg",
+      "sudo mount /dev/xvdg /data",
+      "sudo chown -R ${var.ethereum-geth["geth.user"]} /data",
+      "sudo systemctl daemon-reload",
+      "sudo systemctl start ${var.ethereum-geth["geth.service"]}.${var.ethereum-geth["geth.master.light"]}",
+    ]
+  }
+}
+
+resource "aws_route53_record" "geth-master-light" {
+  zone_id = "${data.aws_route53_zone.external.zone_id}"
+  name    = "${aws_instance.geth-master-light.tags.Name}"
+  type    = "A"
+  ttl     = "300"
+  records = ["${aws_instance.geth-master-light.public_ip}"]
 }
