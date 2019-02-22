@@ -4,10 +4,12 @@ data "aws_route53_zone" "external" {
   name = "${var.external_zone}."
 }
 
-data "aws_ami" "ethereum-node-1_8_22-stable-ubuntu" {
+data "aws_ami" "ethereum-node" {
+  most_recent = true
+
   filter {
     name   = "tag:Name"
-    values = ["go-ethereum-1.8.22-stable-ubuntu"]
+    values = ["eth-node"]
   }
 
   filter {
@@ -21,14 +23,14 @@ data "aws_ami" "ethereum-node-1_8_22-stable-ubuntu" {
   }
 
   filter {
-    name   = "tag:BaseOS"
+    name   = "tag:NodeOS"
     values = ["ubuntu-18.04"]
   }
-
-  most_recent = true
 }
 
-data "aws_ami" "ethereum-poa-1_25_2018" {
+data "aws_ami" "ethereum-poa" {
+  most_recent = true
+
   filter {
     name   = "tag:Name"
     values = ["eth-poa"]
@@ -41,13 +43,27 @@ data "aws_ami" "ethereum-poa-1_25_2018" {
 
   filter {
     name   = "tag:NodeVersion"
-    values = ["1.25.2018"]
+    values = ["1.8.22-stable"]
   }
 
   filter {
-    name   = "tag:BaseOS"
+    name   = "tag:NodeOS"
     values = ["ubuntu-18.04"]
   }
-
-  most_recent = true
 }
+
+# data "aws_ebs_snapshot" "geth-master-full" {
+#   most_recent = true
+#   owners      = ["self"]
+#
+#   filter {
+#     name   = "volume-size"
+#     values = ["${var.ethereum-geth["geth.full.volume_size"]}"]
+#   }
+#
+#   filter {
+#     name   = "tag:Name"
+#     values = ["geth.master.full"]
+#   }
+# }
+

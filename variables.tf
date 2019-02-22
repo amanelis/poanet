@@ -9,34 +9,31 @@ variable "ethereum-geth" {
 
     ### Node Ranks #############################################################
     # Used for experimental nodes that should not be indexed
-    geth.ranking.experimental   = "experimental"
+    geth.ranking.experimental = "experimental"
 
     # Leaders set the pace and are used to boot "follower" nodes off of
-    geth.ranking.leader         = "leader"
+    geth.ranking.leader = "leader"
 
     # Followers are what are booted for customers, these are customer nodes
-    geth.ranking.follower       = "follower"
+    geth.ranking.follower = "follower"
+
     ### Node Ranks #############################################################
 
-    geth.image = ""
-    geth.user  = "ubuntu"
-
+    geth.image             = ""
+    geth.user              = "ubuntu"
     geth.light.type        = "light"
     geth.light.iops        = 100
     geth.light.volume_size = 75
-
     geth.fast.type         = "fast"
     geth.fast.iops         = 300
     geth.fast.volume_size  = 250
-
     geth.full.type         = "full"
     geth.full.iops         = 600
     geth.full.volume_size  = 1000
-
-    geth.master.name  = "master"
-    geth.master.full  = "full"
-    geth.master.fast  = "fast"
-    geth.master.light = "light"
+    geth.master.name       = "master"
+    geth.master.full       = "full"
+    geth.master.fast       = "fast"
+    geth.master.light      = "light"
   }
 }
 

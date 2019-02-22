@@ -1,6 +1,6 @@
 resource "aws_security_group" "vpn" {
-  name 	  = "open-vpn"
-  vpc_id  = "${aws_vpc.vpc.id}"
+  name   = "open-vpn"
+  vpc_id = "${aws_vpc.vpc.id}"
 
   tags {
     Name        = "open-vpn"
@@ -8,10 +8,10 @@ resource "aws_security_group" "vpn" {
   }
 
   ingress {
-	from_port   = 22
-	to_port     = 22
-	protocol    = "tcp"
-	cidr_blocks = ["0.0.0.0/0"]
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
@@ -22,24 +22,24 @@ resource "aws_security_group" "vpn" {
   }
 
   egress {
-	from_port  = 0
-	to_port    = 0
-	protocol   = "-1"
-	cidr_blocks = ["0.0.0.0/0"]
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
 resource "aws_instance" "vpn" {
   instance_type = "t2.micro"
-  ami           = "${data.aws_ami.ethereum-poa-1_25_2018.id}"
+  ami           = "${data.aws_ami.ethereum-poa.id}"
 
-  key_name 		= "${var.key_name}"
-  subnet_id     = "${aws_subnet.public.0.id}"
+  key_name  = "${var.key_name}"
+  subnet_id = "${aws_subnet.public.0.id}"
 
   vpc_security_group_ids = ["${aws_security_group.vpn.id}"]
 
   connection {
-    user = "${var.ubuntu_user}"
+    user  = "${var.ubuntu_user}"
     agent = true
   }
 
@@ -55,11 +55,11 @@ resource "aws_instance" "vpn" {
   }
 
   provisioner "local-exec" {
-    command    = "ssh-keyscan -T 120 ${aws_instance.vpn.public_ip} >> ~/.ssh/known_hosts"
+    command = "ssh-keyscan -T 120 ${aws_instance.vpn.public_ip} >> ~/.ssh/known_hosts"
   }
 
   provisioner "local-exec" {
-    command    = "scp ${var.ubuntu_user}@${aws_instance.vpn.public_ip}:~/${var.external_zone}.ovpn ."
+    command = "scp ${var.ubuntu_user}@${aws_instance.vpn.public_ip}:~/${var.external_zone}.ovpn ."
   }
 
   tags {
