@@ -3,7 +3,7 @@ init:
 	terraform fmt
 	terraform init -input=true \
 				   -backend=true \
-				   -backend-config="bucket=ticketing-terraform-state-$(ENV)" \
+				   -backend-config="bucket=55nodes-terraform-state-$(ENV)" \
 				   -backend-config="key=$(ENV).tfstate" \
 				   -backend-config="region=$(AWS_DEFAULT_REGION)" \
 				   -backend-config="dynamodb_table=terraform_locks" \
