@@ -3,13 +3,13 @@ variable "poa_node_count" {
   default     = 3
 }
 
-resource "aws_security_group" "ethereum-default" {
+resource "aws_security_group" "ethereum-poa" {
   vpc_id      = "${aws_vpc.vpc.id}"
-  name        = "ethereum-default"
+  name        = "ethereum-poa"
   description = "Default port requirements for Ethereum nodes"
 
   tags {
-    Name = "ethereum-default"
+    Name = "ethereum-poa"
   }
 
   ingress {
@@ -53,7 +53,7 @@ resource "aws_instance" "controller" {
 
   key_name               = "${var.key_name}"
   subnet_id              = "${aws_subnet.public.0.id}"
-  vpc_security_group_ids = ["${aws_security_group.ethereum-default.id}"]
+  vpc_security_group_ids = ["${aws_security_group.ethereum-poa.id}"]
   monitoring             = true
 
   tags {
@@ -90,9 +90,10 @@ resource "aws_instance" "controller" {
     }
 
     inline = [
-      "sudo hostname controller",
+      "sudo hostnamectl set-hostname controller",
       "sudo ntpdate -s time.nist.gov",
-      "date +%s | sha256sum | base64 | head -c 32 > /home/ubuntu/passfile",
+      "date +%s | sha256sum | base64 | head -c 32 > /home/ubuntu/.passfile",
+      "echo 'export ACCOUNT_ID=governance' >> /home/ubuntu/.bashrc"
     ]
   }
 }
@@ -116,7 +117,7 @@ resource "aws_instance" "node" {
   availability_zone      = "${element(data.aws_availability_zones.available.names, count.index)}"
   key_name               = "${var.key_name}"
   subnet_id              = "${element(aws_subnet.public.*.id, count.index)}"
-  vpc_security_group_ids = ["${aws_security_group.ethereum-default.id}"]
+  vpc_security_group_ids = ["${aws_security_group.ethereum-poa.id}"]
   monitoring             = true
 
   tags {
@@ -154,7 +155,7 @@ resource "aws_instance" "node" {
     }
 
     inline = [
-      "sudo hostname node00${count.index}",
+      "sudo hostnamectl set-hostname node${count.index}",
       "sudo ntpdate -s time.nist.gov",
     ]
   }

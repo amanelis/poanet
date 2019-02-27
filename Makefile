@@ -35,9 +35,15 @@ fmt:
 	terraform fmt
 
 kill:
-	terraform destroy \
-					  -target rancher_environment.demo \
-					  -target rancher_registration_token.demo-token \
+	terraform destroy -target aws_security_group.ethereum-default \
+					  -target aws_instance.controller \
+					  -target aws_instance.node[0] \
+					  -target aws_instance.node[1] \
+					  -target aws_instance.node[2] \
+					  -target aws_route53_record.controller \
+					  -target aws_route53_record.node[0] \
+					  -target aws_route53_record.node[1] \
+					  -target aws_route53_record.node[2] \
 					  -var profile=$(AWS_PROFILE) \
 					  -var region=$(AWS_DEFAULT_REGION) \
 					  -var-file=environments/$(ENV).tfvars -lock=false
