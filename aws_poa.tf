@@ -21,10 +21,41 @@ resource "aws_security_group" "ethereum-poa" {
   }
 
   ingress {
-    from_port   = 8000
-    to_port     = 8999
+    from_port   = 80
+    to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["${var.vpc_cidr}"]
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTP"
+  }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "HTTPS"
+  }
+
+  ingress {
+    from_port   = 8000
+    to_port     = 8099
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Ethereum mangement ports"
+  }
+
+  ingress {
+    from_port = 8100
+    to_port   = 8999
+    protocol  = "tcp"
+
+    cidr_blocks = [
+      "${var.vpc_cidr}",
+      "172.250.0.0/16",
+      "172.68.0.0/16",
+      "76.120.0.0/16",
+    ]
+
     description = "Ethereum RPC ports"
   }
 
@@ -93,14 +124,15 @@ resource "aws_instance" "controller" {
       "sudo hostnamectl set-hostname controller",
       "sudo ntpdate -s time.nist.gov",
       "date +%s | sha256sum | base64 | head -c 32 > /home/ubuntu/.passfile",
-      "echo 'export ACCOUNT_ID=governance' >> /home/ubuntu/.bashrc"
+      "echo 'export ACCOUNT_ID=governance' >> /home/ubuntu/.bashrc",
+      "ssh-keygen -f /home/ubuntu/.ssh/id_rsa -t rsa -N ''",
     ]
   }
 }
 
 resource "aws_route53_record" "controller" {
   zone_id = "${data.aws_route53_zone.external.zone_id}"
-  name    = "${aws_instance.controller.tags.Name}"
+  name    = "controller.poa"
   type    = "A"
   ttl     = "300"
   records = ["${aws_instance.controller.public_ip}"]
@@ -164,7 +196,7 @@ resource "aws_instance" "node" {
 resource "aws_route53_record" "node" {
   count   = "${var.poa_node_count}"
   zone_id = "${data.aws_route53_zone.external.zone_id}"
-  name    = "poa.node${count.index}"
+  name    = "node${count.index}.poa"
   type    = "A"
   ttl     = "300"
   records = ["${element(aws_instance.node.*.public_ip, count.index)}"]
