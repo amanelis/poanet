@@ -50,7 +50,7 @@ This next step was primarly going to be automated using the [poagod](https://aws
 	
 1. ssh-keygen -t rsa, copy the public key to all nodes.
 2. Create accounts: 
-	* `for ((n=0;n<10;n++)); do geth account new --password ~.passfile >> addresses.txt; done`
+	* `for ((n=0;n<10;n++)); do geth account new --password ~/.passfile >> addresses.txt; done`
 3. Create gensis: 
 	* `puppeth --network $ACCOUNT_ID`
 4. Record all keys from `~/.ethereum/keystore` and create an API Password for steps below.
