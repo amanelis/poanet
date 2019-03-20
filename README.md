@@ -80,7 +80,7 @@ This next step was primarly going to be automated using the [poagod](https://aws
 4. Get all Sealnode's enode uri
 
 	* ssh into each node
-	* attach: `docker exec -it <container_id> geth attach ipc:/root/.ethereum/geth.ipc`
+	* attach: `docker exec -it $(docker ps -a -q --filter "name=sealnode") geth attach ipc:/root/.ethereum/geth.ipc`
 	* geth: `admin.nodeInfo.enode`
 
 5. Add peering to each node
